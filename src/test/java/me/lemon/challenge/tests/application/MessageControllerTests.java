@@ -7,6 +7,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.GregorianCalendar;
+import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +33,6 @@ public class MessageControllerTests {
 	@Autowired
     private MockMvc mockMvc;
 	
-
 	@Test
 	public void endpointShouldReturnFailDueToMissingUserId() throws Exception {
 		String expectedMessage = 
@@ -41,6 +43,10 @@ public class MessageControllerTests {
 		      .andExpect(content().string(expectedMessage));
 	}
 	
+	/**
+	 * Use Case : Se consume una vez la API con un userId determinado 
+	 *            y devuelve el mensaje del servicio
+	 */
 	@Test
 	public void endpointShouldSucceedReturningMessage() throws Exception {
 		String userId = "TestUserId";
@@ -57,6 +63,10 @@ public class MessageControllerTests {
 		      .andExpect(jsonPath("$.subtitle", is(expectedSubtitle))); 
 	}
 	
+	/**
+	 * Use Case : Se consume la API 5 veces dentro de un periodo de 10 segundos 
+	 *            y esta devuelve los 5 mensajes del servicio
+	 */
 	@Test
 	public void endpointShouldSucceedOnFirstFiveRequests() throws Exception {
 		String userId = "TestUserId";
@@ -75,19 +85,61 @@ public class MessageControllerTests {
 		
 	}
 	
+	/**
+	 * Use Case : Se consume la API 6 veces dentro de un periodo de 10 segundos 
+	 * y el sexto llamado devuelve un error.
+	 */
 	@Test
 	public void endpointShouldFailDueToTooManyRequests() throws Exception {
 		String userId = "TestUserId";
 		String expectedMessage = "Usted realizó mas de 5 solicitudes en un lapso de 10 segundos. Por favor intente mas tarde.";
+
+		mockMvc.perform(get("/message").header("UserId", userId));
+		long intervalUpperBound = new GregorianCalendar().getTimeInMillis() + 10000;
+		
+		for (int i = 0; i < 4; i++) {
+			mockMvc.perform(get("/message").header("UserId", userId));
+		}
+		
+		assert(new GregorianCalendar().getTimeInMillis() < intervalUpperBound);
+		
+		mockMvc.perform(get("/message").header("UserId", userId))
+			   .andExpect(status().is(500))
+			   .andExpect(content().string(expectedMessage));;
+	}
+	
+	/**
+	 * Use Case : Se consume la API 6 veces dentro de un periodo de 10 segundos, 
+	 * 			  se hace un septimo llamado 10 segundos despues del primer llamado 
+	 * 			  y este devuelve un mensaje del servicio
+	 */
+	@Test
+	public void endpointShouldSucceedAfterMessageCooldownExpired() throws Exception {
+		String userId = "TestUserId";
+		String expectedMessage = "Eat a bag of fucking dicks.";
+		String expectedSubtitle = String.format("- %s", userId);
+		
+		mockMvc.perform(get("/message").header("UserId", userId));
+		
+		long firstRequestMillis = new GregorianCalendar().getTimeInMillis();
+		long seventhRequestTargetMillis = firstRequestMillis + 10000;
 		
 		for (int i = 0; i < 5; i++) {
 			mockMvc.perform(get("/message").header("UserId", userId));
 		}
 		
+		long millisToWait = seventhRequestTargetMillis - new GregorianCalendar().getTimeInMillis();
+		if (millisToWait > 0) {
+			TimeUnit.MILLISECONDS.sleep(millisToWait);	
+		}
+		
 		ResultActions result = 
 				mockMvc.perform(get("/message").header("UserId", userId));
 								
-		result.andExpect(status().is(500))
-		      .andExpect(content().string(expectedMessage));
+		result.andExpect(status().is(200))
+	      .andExpect(content()
+	    		  	    .contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+	      .andExpect(jsonPath("$.message", is(expectedMessage))) 
+	      .andExpect(jsonPath("$.subtitle", is(expectedSubtitle)));
 	}
 }
