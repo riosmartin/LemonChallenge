@@ -30,6 +30,8 @@ import me.lemon.challenge.application.Application;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 public class MessageControllerTests {
 
+	private static final String MESSAGE_ACTION_PATH = "/message";
+	
 	@Autowired
     private MockMvc mockMvc;
 	
@@ -38,7 +40,7 @@ public class MessageControllerTests {
 		String expectedMessage = 
 				"Required request header 'UserId' for "
 			  + "method parameter type String is not present";
-		ResultActions result = mockMvc.perform(get("/message"));
+		ResultActions result = mockMvc.perform(get(MESSAGE_ACTION_PATH));
 		result.andExpect(status().is(500))
 		      .andExpect(content().string(expectedMessage));
 	}
@@ -54,7 +56,7 @@ public class MessageControllerTests {
 		String expectedSubtitle = String.format("- %s", userId);
 		
 		ResultActions result = 
-				mockMvc.perform(get("/message").header("UserId", userId));
+				mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 												
 		result.andExpect(status().is(200))
 		      .andExpect(content()
@@ -74,7 +76,7 @@ public class MessageControllerTests {
 		String expectedSubtitle = String.format("- %s", userId);
 		
 		for (int i = 0; i < 5; i++) {
-			ResultActions result = mockMvc.perform(get("/message").header("UserId", userId));
+			ResultActions result = mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 			
 			result.andExpect(status().is(200))
 		      .andExpect(content()
@@ -94,16 +96,16 @@ public class MessageControllerTests {
 		String userId = "TestUserId";
 		String expectedMessage = "Usted realizó mas de 5 solicitudes en un lapso de 10 segundos. Por favor intente mas tarde.";
 
-		mockMvc.perform(get("/message").header("UserId", userId));
+		mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 		long intervalUpperBound = new GregorianCalendar().getTimeInMillis() + 10000;
 		
 		for (int i = 0; i < 4; i++) {
-			mockMvc.perform(get("/message").header("UserId", userId));
+			mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 		}
 		
 		assert(new GregorianCalendar().getTimeInMillis() < intervalUpperBound);
 		
-		mockMvc.perform(get("/message").header("UserId", userId))
+		mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId))
 			   .andExpect(status().is(500))
 			   .andExpect(content().string(expectedMessage));;
 	}
@@ -119,13 +121,13 @@ public class MessageControllerTests {
 		String expectedMessage = "Eat a bag of fucking dicks.";
 		String expectedSubtitle = String.format("- %s", userId);
 		
-		mockMvc.perform(get("/message").header("UserId", userId));
+		mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 		
 		long firstRequestMillis = new GregorianCalendar().getTimeInMillis();
 		long seventhRequestTargetMillis = firstRequestMillis + 10000;
 		
 		for (int i = 0; i < 5; i++) {
-			mockMvc.perform(get("/message").header("UserId", userId));
+			mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 		}
 		
 		long millisToWait = seventhRequestTargetMillis - new GregorianCalendar().getTimeInMillis();
@@ -134,7 +136,7 @@ public class MessageControllerTests {
 		}
 		
 		ResultActions result = 
-				mockMvc.perform(get("/message").header("UserId", userId));
+				mockMvc.perform(get(MESSAGE_ACTION_PATH).header("UserId", userId));
 								
 		result.andExpect(status().is(200))
 	      .andExpect(content()
